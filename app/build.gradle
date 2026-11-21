@@ -84,7 +84,7 @@ android {
     }
 
     defaultConfig {
-        applicationId = "nodomain.freeyourgadget.gadgetbridge"
+        applicationId = "vn.bandplus"
 
         // Note: update toolchain.languageVersion when changing targetSdk
         //noinspection OldTargetApi
@@ -246,6 +246,7 @@ androidComponents {
 }
 
 dependencies {
+    implementation(project(":bandplus"))
     coreLibraryDesugaring(libs.desugar.jdk.libs)
 
     implementation(libs.androidx.constraintlayout)

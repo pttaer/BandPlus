@@ -36,6 +36,7 @@ dependencyResolutionManagement {
 rootProject.name = "Gadgetbridge"
 
 include(":app")
+include(":bandplus")
 include(":GBDaoGenerator")
 include(":FitCodeGenerator")
 include(":KaitaiAuxGenerator")
