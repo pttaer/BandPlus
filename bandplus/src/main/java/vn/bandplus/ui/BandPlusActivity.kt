@@ -33,6 +33,7 @@ class BandPlusActivity : ComponentActivity() {
         val prefs = getSharedPreferences("bandplus", Context.MODE_PRIVATE)
         val firstRun = !prefs.getBoolean("reliability_shown", false)
         if (firstRun) prefs.edit().putBoolean("reliability_shown", true).apply()
+        vn.bandplus.work.scheduleWork(this)
         setContent { BandPlusTheme { App(if (firstRun) "reliability" else "home") } }
     }
 }

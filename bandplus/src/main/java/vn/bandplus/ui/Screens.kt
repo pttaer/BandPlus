@@ -304,7 +304,21 @@ fun BandScreen(src: HealthSource, go: (String) -> Unit) {
         TextButton(onClick = { age--; prefs(ctx).edit().putInt("age", age).apply() }) { Text("−") }
         TextButton(onClick = { age++; prefs(ctx).edit().putInt("age", age).apply() }) { Text("+") }
     }
+    Stepper("Cảnh báo nhịp tim cao (bpm)", "hr_high", 100)
+    Stepper("Cảnh báo nhịp tim thấp (bpm)", "hr_low", 40)
     Footnote("Dựa trên Gadgetbridge (AGPLv3) — codeberg.org/Freeyourgadget/Gadgetbridge. Không tài khoản, không đám mây.")
+}
+
+@Composable
+private fun Stepper(label: String, key: String, default: Int, step: Int = 5) {
+    val ctx = LocalContext.current
+    var v by remember { mutableIntStateOf(prefs(ctx).getInt(key, default)) }
+    fun set(n: Int) { v = n; prefs(ctx).edit().putInt(key, n).apply() }
+    Row {
+        Text("$label: $v", color = Color.White, modifier = Modifier.weight(1f).padding(top = 12.dp))
+        TextButton(onClick = { set(v - step) }) { Text("−") }
+        TextButton(onClick = { set(v + step) }) { Text("+") }
+    }
 }
 
 // ---------------------------------------------------------------- Reports + CSV

@@ -7,6 +7,7 @@ import nodomain.freeyourgadget.gadgetbridge.database.DBHandler
 import nodomain.freeyourgadget.gadgetbridge.impl.GBDevice
 import nodomain.freeyourgadget.gadgetbridge.model.ActivityKind
 import nodomain.freeyourgadget.gadgetbridge.model.RecordedDataTypes
+import nodomain.freeyourgadget.gadgetbridge.util.GBPrefs
 import org.slf4j.LoggerFactory
 import vn.bandplus.data.BandStatus
 import vn.bandplus.data.DaySummary
@@ -27,6 +28,15 @@ import java.time.ZoneId
  */
 class GbHealthSource(private val ctx: Context) : HealthSource {
     private val log = LoggerFactory.getLogger(GbHealthSource::class.java)
+
+    init {
+        // Task 2: GB auto-fetch on by default (30 min limit), only if the user never touched it.
+        val p = GBApplication.getPrefs().preferences
+        if (!p.contains(GBPrefs.PREF_AUTO_FETCH_ENABLED)) {
+            p.edit().putBoolean(GBPrefs.PREF_AUTO_FETCH_ENABLED, true)
+                .putString(GBPrefs.PREF_AUTO_FETCH_INTERVAL_LIMIT, "30").apply()
+        }
+    }
 
     private fun device(): GBDevice? {
         val all = GBApplication.app().deviceManager.devices

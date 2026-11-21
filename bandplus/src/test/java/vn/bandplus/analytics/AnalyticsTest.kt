@@ -79,6 +79,20 @@ class AnalyticsTest {
         assertFalse(rhrElevated(List(30) { 55 }, listOf(61, 58)))
     }
 
+    @Test fun sustainedHrNeeds10Minutes() {
+        val spike = (0 until 30).map { HrPoint(t0.plusSeconds(it * 60L), if (it in 5..9) 120 else 70) }
+        assertNull(sustainedHr(spike, 40, 100))
+        val long = (0 until 30).map { HrPoint(t0.plusSeconds(it * 60L), if (it in 5..20) 120 else 70) }
+        val hit = sustainedHr(long, 40, 100)!!
+        assertEquals(t0.plusSeconds(300), hit.first.t)
+        assertTrue(hit.second)
+    }
+
+    @Test fun csvHasBlankForMissing() {
+        val row = vn.bandplus.ui.toCsv(listOf(vn.bandplus.data.DaySummary(java.time.LocalDate.of(2026, 11, 20), 5000, null, null, null, null, null, null, null)))
+        assertEquals("2026-11-20,5000,,,,,,,,,,,", row.lines()[1])
+    }
+
     @Test fun meanIgnoresNulls() {
         assertEquals(5.0, listOf(4, null, 6).meanOrNull()!!, 1e-9)
         assertNull(delta(null, 3))
