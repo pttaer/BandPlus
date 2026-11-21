@@ -9,6 +9,8 @@ import nodomain.freeyourgadget.gadgetbridge.model.ActivityKind
 import nodomain.freeyourgadget.gadgetbridge.model.RecordedDataTypes
 import nodomain.freeyourgadget.gadgetbridge.util.GBPrefs
 import org.slf4j.LoggerFactory
+import nodomain.freeyourgadget.gadgetbridge.devices.XiaomiDailySummarySampleProvider
+import vn.bandplus.data.BandExtras
 import vn.bandplus.data.BandStatus
 import vn.bandplus.data.DaySummary
 import vn.bandplus.data.GbScreen
@@ -74,6 +76,8 @@ class GbHealthSource(private val ctx: Context) : HealthSource {
         val resting = runCatching {
             c.getHeartRateRestingSampleProvider(d, s)!!.getAllSamples(from * 1000, to * 1000)
                 .map { it.heartRate }.filter(::validHr).minOrNull()
+        }.getOrNull() ?: runCatching {
+            XiaomiDailySummarySampleProvider(d, s).getAllSamples(from * 1000, to * 1000).lastOrNull()?.hrResting?.takeIf(::validHr)
         }.getOrNull()
 
         val spo2 = runCatching {
@@ -127,6 +131,38 @@ class GbHealthSource(private val ctx: Context) : HealthSource {
         d.deviceCoordinator.getSampleProvider(d, h.daoSession)!!.getAllActivitySamples(from.toInt(), to.toInt())
             .filter { validHr(it.heartRate) }
             .map { HrPoint(Instant.ofEpochSecond(it.timestamp.toLong()), it.heartRate) }
+    }
+
+    override fun bandExtras(date: LocalDate): BandExtras = db(BandExtras()) { h, d ->
+        val (from, to) = bounds(date)
+        val x = runCatching {
+            XiaomiDailySummarySampleProvider(d, h.daoSession).getAllSamples(from * 1000, to * 1000).lastOrNull()
+        }.getOrNull()
+        val resp = runCatching {
+            // sleep breathing belongs to the wake-up day: look from 18:00 the previous evening
+            d.deviceCoordinator.getRespiratoryRateSampleProvider(d, h.daoSession)!!
+                .getAllSamples((from - 6 * 3600) * 1000, to * 1000).map { it.respiratoryRate }.filter { it in 4f..40f }
+        }.getOrDefault(emptyList())
+        fun pos(v: Int?) = v?.takeIf { it > 0 }
+        BandExtras(
+            vitality = pos(x?.vitalityCurrent),
+            vitalityToday = x?.let { listOfNotNull(it.vitalityIncreaseLight, it.vitalityIncreaseModerate, it.vitalityIncreaseHigh).sum() },
+            trainingLoadDay = pos(x?.trainingLoadDay),
+            trainingLoadWeek = pos(x?.trainingLoadWeek),
+            recoveryHours = x?.recoveryHours?.takeIf { it >= 0 },
+            standingHours = x?.standing?.takeIf { it >= 0 },
+            hrMin = x?.hrMin?.takeIf(::validHr),
+            hrMax = x?.hrMax?.takeIf(::validHr),
+            hrAvg = x?.hrAvg?.takeIf(::validHr),
+            respiratoryAvg = resp.takeIf { it.isNotEmpty() }?.average(),
+        )
+    }
+
+    override fun steps(date: LocalDate): List<Point> = db(emptyList()) { h, d ->
+        val (from, to) = bounds(date)
+        d.deviceCoordinator.getSampleProvider(d, h.daoSession)!!.getAllActivitySamples(from.toInt(), to.toInt())
+            .filter { it.steps >= 0 }
+            .map { Point(Instant.ofEpochSecond(it.timestamp.toLong()), it.steps) }
     }
 
     override fun spo2(date: LocalDate): List<Point> = db(emptyList()) { h, d ->

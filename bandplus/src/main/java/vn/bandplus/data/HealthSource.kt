@@ -10,8 +10,12 @@ import java.time.LocalDate
 interface HealthSource {
     fun day(date: LocalDate): DaySummary
     fun hr(date: LocalDate): List<HrPoint>
+    /** Per-minute steps (only minutes with a sample). */
+    fun steps(date: LocalDate): List<Point>
     fun spo2(date: LocalDate): List<Point>
     fun stress(date: LocalDate): List<Point>
+    /** Values the band itself computes (Xiaomi daily summary + sleep breathing). */
+    fun bandExtras(date: LocalDate): BandExtras
     fun lastSyncedAt(): Instant?
     fun status(): BandStatus
     fun sync()

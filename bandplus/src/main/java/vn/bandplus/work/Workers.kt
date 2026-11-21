@@ -55,6 +55,7 @@ class SyncWorker(ctx: Context, params: WorkerParameters) : CoroutineWorker(ctx, 
     override suspend fun doWork(): Result {
         val src = BandPlus.source ?: return Result.success()
         src.sync()
+        vn.bandplus.widget.TodayWidget.refresh(applicationContext)
         val p = bpPrefs(applicationContext)
         val high = p.getInt("hr_high", 100)
         val low = p.getInt("hr_low", 40)

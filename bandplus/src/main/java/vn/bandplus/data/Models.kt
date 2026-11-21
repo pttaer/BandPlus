@@ -37,4 +37,18 @@ data class HrPoint(val t: Instant, val bpm: Int)
 /** Generic timed value (SpO2 %, stress 0-100). */
 data class Point(val t: Instant, val v: Int)
 
+/** Band-computed values; all null when the band did not send them. */
+data class BandExtras(
+    val vitality: Int? = null,          // Xiaomi Vitality / PAI, 7-day rolling
+    val vitalityToday: Int? = null,     // light + moderate + high gained today
+    val trainingLoadDay: Int? = null,
+    val trainingLoadWeek: Int? = null,
+    val recoveryHours: Int? = null,
+    val standingHours: Int? = null,
+    val hrMin: Int? = null,
+    val hrMax: Int? = null,
+    val hrAvg: Int? = null,
+    val respiratoryAvg: Double? = null, // breaths/min during sleep
+)
+
 data class BandStatus(val name: String?, val connected: Boolean, val battery: Int?)

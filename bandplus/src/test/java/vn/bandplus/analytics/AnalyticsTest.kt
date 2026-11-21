@@ -93,6 +93,46 @@ class AnalyticsTest {
         assertEquals("2026-11-20,5000,,,,,,,,,,,", row.lines()[1])
     }
 
+    @Test fun trimpZeroAtRest() {
+        val rest = (0 until 60).map { HrPoint(t0.plusSeconds(it * 60L), 55) }
+        assertEquals(0.0, trimp(rest, 60, 190), 1e-9)
+        val work = (0 until 30).map { HrPoint(t0.plusSeconds(it * 60L), 160) }
+        assertTrue(trimp(work, 60, 190) > 30)
+    }
+
+    @Test fun acwrSteadyIsOne() {
+        assertEquals(1.0, acwr(List(28) { 50.0 })!!, 1e-9)
+        assertNull(acwr(List(10) { 50.0 }))
+    }
+
+    @Test fun sriPerfectlyRegularIs100() {
+        val nights = (0 until 7).map { i ->
+            val s = t0.plus(Duration.ofDays(i.toLong())).plusSeconds(3600)
+            val e = s.plusSeconds(7 * 3600)
+            SleepNight(s, e, 60, 300, 60, 0, listOf(vn.bandplus.data.StageSpan(s, e, vn.bandplus.data.Stage.LIGHT)))
+        }
+        assertEquals(100.0, sleepRegularityIndex(nights, t0, 7)!!, 1e-9)
+    }
+
+    @Test fun sedentaryBoutsFound() {
+        val pts = (0 until 120).map { Point(t0.plusSeconds(it * 60L), if (it < 70) 0 else 50) }
+        val b = sedentaryBouts(pts)
+        assertEquals(1, b.size)
+        assertEquals(Duration.ofMinutes(70), b[0].second)
+    }
+
+    @Test fun pearsonAndTopFactors() {
+        val xs = (1..10).map { it.toDouble() }
+        assertEquals(-1.0, pearson(xs, xs.map { -it })!!, 1e-9)
+        val top = topFactors(mapOf("a" to xs.map { it to it * 2 }, "b" to xs.map { it to (it % 3) }), 1)
+        assertEquals("a", top[0].first)
+    }
+
+    @Test fun energyFullNight() {
+        assertEquals(100, energy(night(0.0, 100, 300, 80, 0), 25, 0.0, 0))
+        assertNull(energy(null, 25, 1.0, 0))
+    }
+
     @Test fun meanIgnoresNulls() {
         assertEquals(5.0, listOf(4, null, 6).meanOrNull()!!, 1e-9)
         assertNull(delta(null, 3))

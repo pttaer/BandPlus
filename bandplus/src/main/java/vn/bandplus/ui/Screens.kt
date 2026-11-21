@@ -30,6 +30,13 @@ import vn.bandplus.analytics.bedtimeSdMin
 import vn.bandplus.analytics.delta
 import vn.bandplus.analytics.dropsPerHour
 import vn.bandplus.analytics.efficiency
+import vn.bandplus.analytics.energy
+import vn.bandplus.analytics.sedentaryBouts
+import vn.bandplus.analytics.sleepRegularityIndex
+import vn.bandplus.analytics.stepsAfter
+import vn.bandplus.analytics.topFactors
+import vn.bandplus.analytics.trimp
+import vn.bandplus.analytics.acwr
 import vn.bandplus.analytics.hrZones
 import vn.bandplus.analytics.maxHrFor
 import vn.bandplus.analytics.meanOrNull
@@ -63,7 +70,7 @@ fun userAge(ctx: Context) = prefs(ctx).getInt("age", 30)
 
 // ---------------------------------------------------------------- Dashboard
 
-enum class Card { STEPS, KCAL, ACTIVE, RHR, SLEEP, SPO2, STRESS, READINESS, BATTERY }
+enum class Card { STEPS, KCAL, ACTIVE, RHR, SLEEP, SPO2, STRESS, READINESS, ENERGY, VITALITY, TRAINING, SEDENTARY, BATTERY }
 
 @Composable
 fun DashboardScreen(src: HealthSource, go: (String) -> Unit) {
@@ -78,6 +85,13 @@ fun DashboardScreen(src: HealthSource, go: (String) -> Unit) {
     val synced by load(refresh) { src.lastSyncedAt() }
     val status by load(refresh) { src.status() }
     val nights by load(refresh) { (1..14).mapNotNull { src.day(today().minusDays(it.toLong())).sleep } }
+    val extras by load(refresh) { src.bandExtras(today()) }
+    val sitting by load(refresh) {
+        val wake = src.day(today()).sleep?.end ?: java.time.Instant.MIN
+        // waking hours only, before 22:00, so sleep and lying in bed don't count
+        val bed = today().atTime(22, 0).atZone(ZoneId.systemDefault()).toInstant()
+        sedentaryBouts(src.steps(today()).filter { it.t > wake && it.t < bed })
+    }
 
     Row(Modifier.fillMaxWidth()) {
         Column(Modifier.weight(1f)) {
@@ -116,6 +130,22 @@ fun DashboardScreen(src: HealthSource, go: (String) -> Unit) {
                 val r = readiness(t.restingHr?.let { rh -> base?.let { rh - it } }, sleepScore, t.spo2Min, y.stressAvg)
                 MetricCard("Sẵn sàng", r?.toString(), "/100", higherIsBetter = null, modifier = m) { go("heart") }
             }
+            Card.ENERGY -> {
+                val awakeH = t.sleep?.let { Duration.between(it.end, java.time.Instant.now()).toMinutes() / 60.0 } ?: 0.0
+                MetricCard("Năng lượng (ước tính)", energy(t.sleep, t.stressAvg, awakeH.coerceAtLeast(0.0), t.activeMin)?.toString(), "/100", higherIsBetter = null, modifier = m)
+            }
+            Card.VITALITY -> MetricCard(
+                "Vitality (PAI) 7 ngày" + (extras?.vitalityToday?.takeIf { it > 0 }?.let { " · +$it hôm nay" } ?: ""),
+                extras?.vitality?.toString(), "/100", higherIsBetter = null, modifier = m
+            )
+            Card.TRAINING -> MetricCard(
+                "Tải tập luyện tuần" + (extras?.recoveryHours?.takeIf { it > 0 }?.let { " · hồi phục ${it}h" } ?: ""),
+                extras?.trainingLoadWeek?.toString(), "", higherIsBetter = null, modifier = m
+            ) { go("heart") }
+            Card.SEDENTARY -> MetricCard(
+                "Ngồi lâu > 60 phút" + (extras?.standingHours?.let { " · đứng $it giờ" } ?: ""),
+                sitting?.let { "${it.size} lần" }, "", higherIsBetter = null, modifier = m
+            )
             Card.BATTERY -> MetricCard("Pin vòng", status?.battery?.toString(), "%", higherIsBetter = null, modifier = m)
         }
         if (editing) Row {
@@ -138,6 +168,8 @@ fun SleepScreen(src: HealthSource) {
     val d by load(day) { src.day(day) }
     val history by load(day) { (1..90).map { src.day(day.minusDays(it.toLong())) } }
     val hr by load(day) { src.hr(day) + src.hr(day.minusDays(1)) }
+    val extras by load(day) { src.bandExtras(day) }
+    val factors by load(day) { sleepFactors(src, day) }
     DayPicker(day) { day = it }
     val n = d?.sleep ?: return Text(if (d == null) "Đang tải…" else "Không có dữ liệu giấc ngủ cho ngày này.", color = Muted)
     val last14 = history.orEmpty().take(14).mapNotNull { it.sleep }
@@ -162,7 +194,8 @@ fun SleepScreen(src: HealthSource) {
     val firstAsleep = n.stages.firstOrNull { it.stage != vn.bandplus.data.Stage.AWAKE }
     Line("Thời gian vào giấc", firstAsleep?.let { "${Duration.between(n.start, it.start).toMinutes()} phút" } ?: "—")
     val asleepStart = firstAsleep?.start ?: n.start
-    val awakenings = n.stages.filter { it.stage == vn.bandplus.data.Stage.AWAKE && it.start > asleepStart }
+    // exclude the final wake-up span; it is not an awakening during sleep
+    val awakenings = n.stages.filter { it.stage == vn.bandplus.data.Stage.AWAKE && it.start > asleepStart && it.end < n.end }
     Line("Số lần thức / WASO", "${awakenings.size} lần / ${awakenings.sumOf { Duration.between(it.start, it.end).toMinutes() }} phút")
     val firstRem = n.stages.firstOrNull { it.stage == vn.bandplus.data.Stage.REM }
     Line("Độ trễ REM", firstRem?.let { "${Duration.between(asleepStart, it.start).toMinutes()} phút" } ?: "—")
@@ -182,10 +215,42 @@ fun SleepScreen(src: HealthSource) {
         .map { if (it < 12 * 60) it + 24 * 60 else it }.takeIf { it.isNotEmpty() }?.average()
     val jet = midMin(weekend)?.let { a -> midMin(weekday)?.let { b -> (a - b).toInt() } }
     Line("Lệch giờ cuối tuần (social jetlag)", jet?.let { "$it phút" } ?: "—")
+    Line("Nhịp thở khi ngủ (vòng đo)", extras?.respiratoryAvg?.let { "%.1f lần/phút".format(it) } ?: "—")
+    val nightsOldestFirst = (history.orEmpty().take(13).reversed() + d!!).mapNotNull { it.sleep }
+    val sriStart = day.minusDays(13).atStartOfDay(z).toInstant()
+    Line("Chỉ số đều đặn SRI (14 ngày)", sleepRegularityIndex(nightsOldestFirst, sriStart, 14)?.let { "%.0f".format(it) } ?: "— (cần 7 đêm)")
+
+    SectionTitle("Yếu tố ảnh hưởng điểm ngủ (30 đêm)")
+    val f = factors
+    when {
+        f == null -> Text("Đang tính…", color = Muted, fontSize = 13.sp)
+        f.isEmpty() -> Text("Cần ít nhất 5 đêm có dữ liệu.", color = Muted, fontSize = 13.sp)
+        else -> f.forEach { (name, r) ->
+            Line(name, (if (r < 0) "càng cao điểm càng thấp" else "càng cao điểm càng cao") + " (r=%.2f)".format(r))
+        }
+    }
 
     SectionTitle("Xu hướng 90 ngày (giờ ngủ)")
     BarChart((history.orEmpty().reversed() + d!!).map { it.sleep?.asleepMin })
     Footnote("Điểm giấc ngủ là ước lượng cá nhân, không phải chẩn đoán y khoa. Đêm được tính cho ngày thức dậy.")
+}
+
+/** Pearson r of evening/day factors vs that night's score, top 3. Factors come from the day before waking. */
+private fun sleepFactors(src: HealthSource, day: LocalDate): List<Pair<String, Double>> {
+    val z = ZoneId.systemDefault()
+    val rows = (0 until 30).mapNotNull { i ->
+        val wake = day.minusDays(i.toLong())
+        val n = src.day(wake).sleep ?: return@mapNotNull null
+        val prev = wake.minusDays(1)
+        val prevDay = src.day(prev)
+        val bedMin = ((n.start.atZone(z).toLocalTime().toSecondOfDay() / 60 - 720 + 1440) % 1440).toDouble()
+        val late = stepsAfter(src.steps(prev), prev.atTime(20, 0).atZone(z).toInstant()).toDouble()
+        Triple(score(n, emptyList()).total.toDouble(), listOf(bedMin, late, prevDay.stressAvg?.toDouble(), prevDay.activeMin?.toDouble()), Unit)
+    }
+    val names = listOf("Giờ đi ngủ (muộn hơn)", "Bước chân sau 20:00", "Căng thẳng ban ngày", "Phút vận động ban ngày")
+    return topFactors(names.indices.associate { k ->
+        names[k] to rows.mapNotNull { r -> r.second[k]?.let { it to r.first } }
+    })
 }
 
 @Composable
@@ -203,14 +268,38 @@ fun HeartScreen(src: HealthSource) {
     var day by remember { mutableStateOf(today()) }
     val hr by load(day) { src.hr(day) }
     val hist by load(day) { (0..89).map { src.day(day.minusDays(it.toLong())) } }
+    val extras by load(day) { src.bandExtras(day) }
+    val maxHr = maxHrFor(userAge(ctx))
+    // daily TRIMP for 28 days, newest first; resting HR per day falls back to 60
+    val loads by load(day) {
+        (0 until 28).map { i -> val dd = day.minusDays(i.toLong()); trimp(src.hr(dd), src.day(dd).restingHr ?: 60, maxHr) }
+    }
     DayPicker(day) { day = it }
     val pts = hr ?: return Text("Đang tải…", color = Muted)
-    val maxHr = maxHrFor(userAge(ctx))
     val rhrToday = hist?.firstOrNull()?.restingHr
+    val sleepNow = hist?.firstOrNull()?.sleep
 
     SectionTitle("Nhịp tim trong ngày")
     LineChart(pts.map { it.t.epochSecond }, pts.map { it.bpm })
     if (pts.isNotEmpty()) Line("Thấp / TB / cao", "${pts.minOf { it.bpm }} / ${pts.map { it.bpm }.average().toInt()} / ${pts.maxOf { it.bpm }} bpm")
+    extras?.let { e -> if (e.hrMin != null) Line("Vòng tính (thấp / TB / cao)", "${e.hrMin} / ${e.hrAvg ?: "—"} / ${e.hrMax ?: "—"} bpm") }
+    if (sleepNow != null) {
+        val inSleep = pts.filter { it.t >= sleepNow.start && it.t <= sleepNow.end }.map { it.bpm }
+        val awake = pts.filter { it.t > sleepNow.end }.map { it.bpm }
+        if (inSleep.size >= 30 && awake.size >= 60) {
+            val dip = vn.bandplus.analytics.nocturnalDip(awake.average(), inSleep.average())
+            Line("Giảm nhịp ban đêm", "%.0f%%".format(dip * 100) + if (dip < 0.10) " (thấp, non-dipper)" else "")
+        }
+    }
+
+    SectionTitle("Tải tập luyện")
+    val l = loads
+    Line("TRIMP hôm nay", l?.firstOrNull()?.let { "%.0f".format(it) } ?: "—")
+    val ratio = l?.let { acwr(it) }
+    Line("Tỉ lệ cấp/mạn tính (7/28 ngày)", ratio?.let { "%.2f".format(it) + if (it in 0.8..1.3) " (an toàn)" else if (it > 1.3) " (tăng quá nhanh)" else " (giảm tải)" } ?: "—")
+    Line("Vòng tính: tải ngày / tuần", "${extras?.trainingLoadDay ?: "—"} / ${extras?.trainingLoadWeek ?: "—"}")
+    extras?.recoveryHours?.takeIf { it > 0 }?.let { Line("Thời gian hồi phục (vòng)", "$it giờ") }
+    extras?.vitality?.let { Line("Vitality / PAI (7 ngày)", "$it") }
 
     SectionTitle("Vùng nhịp tim (Karvonen, max $maxHr)")
     val zones = hrZones(pts, maxHr, rhrToday)
