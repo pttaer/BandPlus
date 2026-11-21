@@ -54,7 +54,7 @@ class GbHealthSource(private val ctx: Context) : HealthSource {
         val (from, to) = bounds(date)
         val c = d.deviceCoordinator
         val s = h.daoSession
-        val samples = c.getSampleProvider(d, s).getAllActivitySamples(from.toInt(), to.toInt())
+        val samples = c.getSampleProvider(d, s)!!.getAllActivitySamples(from.toInt(), to.toInt())
         val hasData = samples.any { it.steps > 0 || validHr(it.heartRate) }
         val steps = if (hasData) samples.sumOf { it.steps.coerceAtLeast(0) } else null
         val kcal = if (hasData) samples.sumOf { it.activeCalories.coerceAtLeast(0) } else null
@@ -62,15 +62,15 @@ class GbHealthSource(private val ctx: Context) : HealthSource {
         val activeMin = if (hasData) samples.count { it.steps >= 100 } else null
 
         val resting = runCatching {
-            c.getHeartRateRestingSampleProvider(d, s).getAllSamples(from * 1000, to * 1000)
+            c.getHeartRateRestingSampleProvider(d, s)!!.getAllSamples(from * 1000, to * 1000)
                 .map { it.heartRate }.filter(::validHr).minOrNull()
         }.getOrNull()
 
         val spo2 = runCatching {
-            c.getSpo2SampleProvider(d, s).getAllSamples(from * 1000, to * 1000).map { it.spo2 }.filter { it in 50..100 }
+            c.getSpo2SampleProvider(d, s)!!.getAllSamples(from * 1000, to * 1000).map { it.spo2 }.filter { it in 50..100 }
         }.getOrDefault(emptyList())
         val stress = runCatching {
-            c.getStressSampleProvider(d, s).getAllSamples(from * 1000, to * 1000).map { it.stress }.filter { it in 1..100 }
+            c.getStressSampleProvider(d, s)!!.getAllSamples(from * 1000, to * 1000).map { it.stress }.filter { it in 1..100 }
         }.getOrDefault(emptyList())
 
         DaySummary(
@@ -88,7 +88,7 @@ class GbHealthSource(private val ctx: Context) : HealthSource {
 
     private fun sleep(h: DBHandler, d: GBDevice, from: Long, to: Long): SleepNight? {
         val sessions = runCatching {
-            d.deviceCoordinator.getSleepSessionProvider(d, h.daoSession).getSleepSessionsEndingIn(from.toInt(), to.toInt())
+            d.deviceCoordinator.getSleepSessionProvider(d, h.daoSession)!!.getSleepSessionsEndingIn(from.toInt(), to.toInt())
         }.getOrDefault(emptyList())
         val main = sessions.filter { it.stages.isNotEmpty() }.maxByOrNull { it.totalSleepDuration } ?: return null
         val spans = main.stages.mapNotNull { st ->
@@ -114,25 +114,25 @@ class GbHealthSource(private val ctx: Context) : HealthSource {
 
     override fun hr(date: LocalDate): List<HrPoint> = db(emptyList()) { h, d ->
         val (from, to) = bounds(date)
-        d.deviceCoordinator.getSampleProvider(d, h.daoSession).getAllActivitySamples(from.toInt(), to.toInt())
+        d.deviceCoordinator.getSampleProvider(d, h.daoSession)!!.getAllActivitySamples(from.toInt(), to.toInt())
             .filter { validHr(it.heartRate) }
             .map { HrPoint(Instant.ofEpochSecond(it.timestamp.toLong()), it.heartRate) }
     }
 
     override fun spo2(date: LocalDate): List<Point> = db(emptyList()) { h, d ->
         val (from, to) = bounds(date)
-        d.deviceCoordinator.getSpo2SampleProvider(d, h.daoSession).getAllSamples(from * 1000, to * 1000)
+        d.deviceCoordinator.getSpo2SampleProvider(d, h.daoSession)!!.getAllSamples(from * 1000, to * 1000)
             .filter { it.spo2 in 50..100 }.map { Point(Instant.ofEpochMilli(it.timestamp), it.spo2) }
     }
 
     override fun stress(date: LocalDate): List<Point> = db(emptyList()) { h, d ->
         val (from, to) = bounds(date)
-        d.deviceCoordinator.getStressSampleProvider(d, h.daoSession).getAllSamples(from * 1000, to * 1000)
+        d.deviceCoordinator.getStressSampleProvider(d, h.daoSession)!!.getAllSamples(from * 1000, to * 1000)
             .filter { it.stress in 1..100 }.map { Point(Instant.ofEpochMilli(it.timestamp), it.stress) }
     }
 
     override fun lastSyncedAt(): Instant? = db(null) { h, d ->
-        d.deviceCoordinator.getSampleProvider(d, h.daoSession).latestActivitySample
+        d.deviceCoordinator.getSampleProvider(d, h.daoSession)!!.latestActivitySample
             ?.let { Instant.ofEpochSecond(it.timestamp.toLong()) }
     }
 

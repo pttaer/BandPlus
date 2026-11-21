@@ -1,133 +1,82 @@
 package vn.bandplus.ui
 
-import android.content.Intent
+import android.content.Context
 import android.os.Bundle
 import androidx.activity.ComponentActivity
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
-import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.Surface
+import androidx.compose.material3.NavigationBar
+import androidx.compose.material3.NavigationBarItem
+import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.Alignment
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
+import vn.bandplus.data.BandPlus
+import vn.bandplus.setup.ReliabilityScreen
 
 class BandPlusActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        setContent {
-            BandPlusTheme {
-                Surface(
-                    modifier = Modifier.fillMaxSize(),
-                    color = Color.Black
-                ) {
-                    PlaceholderScreen(
-                        onOpenGadgetbridge = {
-                            try {
-                                val intent = Intent().setClassName(this, "nodomain.freeyourgadget.gadgetbridge.activities.ControlCenterv2")
-                                startActivity(intent)
-                            } catch (_: Exception) {}
-                        }
-                    )
+        val prefs = getSharedPreferences("bandplus", Context.MODE_PRIVATE)
+        val firstRun = !prefs.getBoolean("reliability_shown", false)
+        if (firstRun) prefs.edit().putBoolean("reliability_shown", true).apply()
+        setContent { BandPlusTheme { App(if (firstRun) "reliability" else "home") } }
+    }
+}
+
+private val tabs = listOf("home" to "Hôm nay", "sleep" to "Ngủ", "heart" to "Tim", "vitals" to "SpO2", "band" to "Vòng")
+
+@Composable
+fun App(start: String) {
+    var route by rememberSaveable { mutableStateOf(start) }
+    val src = BandPlus.source
+    BackHandler(enabled = route != "home") { route = "home" }
+    Scaffold(
+        containerColor = Color.Black,
+        bottomBar = {
+            NavigationBar(containerColor = CardBg) {
+                tabs.forEach { (r, label) ->
+                    NavigationBarItem(selected = route == r, onClick = { route = r }, icon = { Text(label.take(1)) }, label = { Text(label) })
                 }
             }
         }
-    }
-}
-
-@Composable
-fun BandPlusTheme(content: @Composable () -> Unit) {
-    val cyan = Color(0xFF8BDCFB)
-    val colorScheme = darkColorScheme(
-        primary = cyan,
-        background = Color.Black,
-        surface = Color(0xFF121212),
-        onPrimary = Color.Black,
-        onBackground = Color.White,
-        onSurface = Color.White
-    )
-    MaterialTheme(
-        colorScheme = colorScheme,
-        content = content
-    )
-}
-
-@Composable
-fun PlaceholderScreen(onOpenGadgetbridge: () -> Unit) {
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(Color.Black)
-            .padding(24.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center
-    ) {
-        Text(
-            text = "BandPlus",
-            fontSize = 32.sp,
-            fontWeight = FontWeight.Bold,
-            color = Color(0xFF8BDCFB)
-        )
-        Spacer(modifier = Modifier.height(8.dp))
-        Text(
-            text = "Xiaomi Smart Band 9 - Deep Analytics & Privacy",
-            fontSize = 15.sp,
-            color = Color(0xFFAAAAAA),
-            textAlign = TextAlign.Center
-        )
-
-        Spacer(modifier = Modifier.height(32.dp))
-
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .background(Color(0xFF161616), RoundedCornerShape(12.dp))
-                .padding(16.dp)
-        ) {
-            Column {
-                Text(
-                    text = "Module Initialized",
-                    fontWeight = FontWeight.SemiBold,
-                    color = Color.White,
-                    fontSize = 16.sp
-                )
-                Spacer(modifier = Modifier.height(4.dp))
-                Text(
-                    text = "Jetpack Compose + Material 3 UI runtime active. Backend connection ready.",
-                    color = Color(0xFF888888),
-                    fontSize = 13.sp
-                )
+    ) { pad ->
+        Column(Modifier.fillMaxSize().padding(pad).padding(horizontal = 16.dp).verticalScroll(rememberScrollState())) {
+            if (src == null) {
+                Text("Chưa có kết nối tới dữ liệu Gadgetbridge.", color = Bad)
+                return@Column
+            }
+            when (route) {
+                "sleep" -> SleepScreen(src)
+                "heart" -> HeartScreen(src)
+                "vitals" -> VitalsScreen(src)
+                "band" -> BandScreen(src) { route = it }
+                "reports" -> ReportsScreen(src)
+                "reliability" -> ReliabilityScreen()
+                else -> DashboardScreen(src) { route = it }
             }
         }
-
-        Spacer(modifier = Modifier.height(24.dp))
-
-        OutlinedButton(
-            onClick = onOpenGadgetbridge,
-            modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(8.dp),
-            colors = ButtonDefaults.outlinedButtonColors(contentColor = Color(0xFF8BDCFB))
-        ) {
-            Text("Open Gadgetbridge Settings & Pairing")
-        }
     }
 }
 
+@Composable
+fun BandPlusTheme(content: @Composable () -> Unit) = MaterialTheme(
+    colorScheme = darkColorScheme(
+        primary = Cyan, background = Color.Black, surface = CardBg,
+        onPrimary = Color.Black, onBackground = Color.White, onSurface = Color.White,
+    ),
+    content = content,
+)
