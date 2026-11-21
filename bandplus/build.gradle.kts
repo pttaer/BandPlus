@@ -6,7 +6,7 @@ plugins {
 
 android {
     namespace = "vn.bandplus"
-    compileSdk = 35
+    compileSdk = 37 // match :app; androidx deps need >= 36
 
     defaultConfig {
         minSdk = 24

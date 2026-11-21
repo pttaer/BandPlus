@@ -15,7 +15,7 @@
 
 ## Status after session 2026-11-21 (code only, nothing run on a device yet)
 
-**Verified:** `:app:assembleMainlineDebug` builds; `:bandplus:testDebugUnitTest` 20/20 pass (sleep score, bedtime SD across midnight, sleep debt, HR zones, resting HR, SDANN, RR cleaning/RMSSD, SpO2 drops/time-below, readiness, RHR flag, sustained-HR alert, CSV, TRIMP, ACWR, SRI, sedentary bouts, Pearson/top factors, energy). App unit tests + release build: see the last commit message / section below.
+**Verified:** `:app:assembleMainlineDebug` builds; `:bandplus:testDebugUnitTest` 20/20 pass (sleep score, bedtime SD across midnight, sleep debt, HR zones, resting HR, SDANN, RR cleaning/RMSSD, SpO2 drops/time-below, readiness, RHR flag, sustained-HR alert, CSV, TRIMP, ACWR, SRI, sedentary bouts, Pearson/top factors, energy). Release build (`:app:assembleMainlineRelease`, R8 + lint) passes unsigned. App unit tests: 2844 run, 5 fail, all Windows-only upstream issues (CRLF test data in HexToBinaryInputStreamTest/CardoSupportTest/FitWeatherTest, temp-file rename in HgtTileLibraryTest), none in BandPlus code.
 
 **Done in code**
 - Task 2: `setup/ReliabilityScreen.kt` (battery optimisation, POST_NOTIFICATIONS, notification access, vivo autostart with fallbacks), shown on first launch and from Vòng tab. GB auto-fetch enabled by default (30 min) if the user never set it. `SyncWorker` asks the band for data every 30 min.
