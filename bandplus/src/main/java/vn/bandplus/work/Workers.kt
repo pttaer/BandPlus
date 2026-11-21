@@ -59,7 +59,11 @@ class SyncWorker(ctx: Context, params: WorkerParameters) : CoroutineWorker(ctx, 
         val p = bpPrefs(applicationContext)
         val high = p.getInt("hr_high", 100)
         val low = p.getInt("hr_low", 40)
-        val hit = sustainedHr(src.hr(LocalDate.now()), low, high) ?: return Result.success()
+        val today = LocalDate.now()
+        // resting alerts only: drop HR within 5 min after any minute with >= 30 steps (walking, workouts)
+        val activeMin = src.steps(today).filter { it.v >= 30 }.map { it.t.epochSecond / 60 }.toSet()
+        val resting = src.hr(today).filter { p -> val m = p.t.epochSecond / 60; (0..5).none { (m - it) in activeMin } }
+        val hit = sustainedHr(resting, low, high) ?: return Result.success()
         val key = hit.first.t.epochSecond
         if (p.getLong("hr_alert_last", 0) == key) return Result.success()
         p.edit().putLong("hr_alert_last", key).apply()

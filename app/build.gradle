@@ -164,6 +164,8 @@ android {
         getByName("release") {
             minifyEnabled = true
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
+            // BandPlus: sign with a local keystore via -Dnightly_store_file=... -Dnightly_store_password=... (never committed)
+            if (nightlyStoreFile.isPresent()) signingConfig = signingConfigs.getByName("nightly")
         }
 
         final def nightlySigning = nightlyStoreFile.isPresent()

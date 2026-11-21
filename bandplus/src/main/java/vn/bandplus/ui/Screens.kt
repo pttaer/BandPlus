@@ -76,6 +76,12 @@ enum class Card { STEPS, KCAL, ACTIVE, RHR, SLEEP, SPO2, STRESS, READINESS, ENER
 fun DashboardScreen(src: HealthSource, go: (String) -> Unit) {
     val ctx = LocalContext.current
     var refresh by remember { mutableIntStateOf(0) }
+    var syncTick by remember { mutableIntStateOf(0) }
+    // fetch is async in GB: reload a few times while it lands
+    androidx.compose.runtime.LaunchedEffect(syncTick) {
+        if (syncTick == 0) return@LaunchedEffect
+        for (wait in listOf(3_000L, 15_000L, 45_000L)) { kotlinx.coroutines.delay(wait); refresh++ }
+    }
     var editing by remember { mutableStateOf(false) }
     var order by remember {
         mutableStateOf(prefs(ctx).getString("cards", null)?.split(",")?.mapNotNull { n -> Card.entries.find { it.name == n } }
@@ -102,7 +108,7 @@ fun DashboardScreen(src: HealthSource, go: (String) -> Unit) {
                 color = Muted, fontSize = 13.sp
             )
         }
-        Button(onClick = { src.sync(); refresh++ }) { Text("Đồng bộ") }
+        Button(onClick = { src.sync(); syncTick++ }) { Text("Đồng bộ") }
     }
     Spacer(Modifier.height(12.dp))
     val w = week ?: return Text("Đang tải…", color = Muted)

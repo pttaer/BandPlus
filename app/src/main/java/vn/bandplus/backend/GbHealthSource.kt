@@ -10,6 +10,7 @@ import nodomain.freeyourgadget.gadgetbridge.model.RecordedDataTypes
 import nodomain.freeyourgadget.gadgetbridge.util.GBPrefs
 import org.slf4j.LoggerFactory
 import nodomain.freeyourgadget.gadgetbridge.devices.XiaomiDailySummarySampleProvider
+import nodomain.freeyourgadget.gadgetbridge.devices.xiaomi.XiaomiCoordinator
 import vn.bandplus.data.BandExtras
 import vn.bandplus.data.BandStatus
 import vn.bandplus.data.DaySummary
@@ -40,9 +41,22 @@ class GbHealthSource(private val ctx: Context) : HealthSource {
         }
     }
 
+    /** Prefer a Xiaomi band (an imported DB may hold other devices), connected first. */
     private fun device(): GBDevice? {
         val all = GBApplication.app().deviceManager.devices
-        return all.firstOrNull { it.isInitialized } ?: all.firstOrNull()
+        val xiaomi = all.filter { it.deviceCoordinator is XiaomiCoordinator }.ifEmpty { all }
+        return xiaomi.firstOrNull { it.isInitialized } ?: xiaomi.firstOrNull()
+    }
+
+    // ponytail: in-memory cache of days >= 2 days old (they rarely change); cleared on sync() and keyed by zone
+    // so a timezone change recomputes day boundaries. Upgrade to a DB table if cold start gets slow.
+    private val dayCache = java.util.concurrent.ConcurrentHashMap<Pair<LocalDate, ZoneId>, DaySummary>()
+
+    override fun day(date: LocalDate): DaySummary {
+        if (date > LocalDate.now().minusDays(2)) return computeDay(date)
+        val key = date to ZoneId.systemDefault()
+        dayCache[key]?.let { return it }
+        return computeDay(date).also { if (it.steps != null || it.sleep != null) dayCache[key] = it }
     }
 
     private fun <T> db(default: T, block: (DBHandler, GBDevice) -> T): T {
@@ -62,7 +76,7 @@ class GbHealthSource(private val ctx: Context) : HealthSource {
 
     private fun validHr(v: Int) = v in 25..250
 
-    override fun day(date: LocalDate): DaySummary = db(DaySummary(date, null, null, null, null, null, null, null, null)) { h, d ->
+    private fun computeDay(date: LocalDate): DaySummary = db(DaySummary(date, null, null, null, null, null, null, null, null)) { h, d ->
         val (from, to) = bounds(date)
         val c = d.deviceCoordinator
         val s = h.daoSession
@@ -188,6 +202,7 @@ class GbHealthSource(private val ctx: Context) : HealthSource {
     }
 
     override fun sync() {
+        dayCache.clear()
         val d = device() ?: return
         GBApplication.deviceService(d).onFetchRecordedData(RecordedDataTypes.TYPE_SYNC)
     }
