@@ -191,6 +191,7 @@ open class GBApplication : Application() {
     override fun onCreate() {
         appInstance = this
         super.onCreate()
+        vn.bandplus.data.BandPlus.source = vn.bandplus.backend.GbHealthSource(this) // BandPlus hook
         ProcessLifecycleOwner.get().lifecycle.addObserver(lifecycleObserver)
 
         val environmentSetup = GBEnvironment.isEnvironmentSetup()

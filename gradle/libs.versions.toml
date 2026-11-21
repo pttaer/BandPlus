@@ -123,6 +123,7 @@ json = { group = "org.json", name = "json", version.ref = "json" }
 jsoup = { group = "org.jsoup", name = "jsoup", version.ref = "jsoup" }
 junit = { group = "junit", name = "junit", version.ref = "junit" }
 kaitai-struct-runtime = { group = "io.kaitai", name = "kaitai-struct-runtime", version.ref = "kaitai-struct-runtime" }
+kotlinx-coroutines-android = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-android", version.ref = "kotlinx-coroutines" }
 kotlinx-coroutines-test = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-test", version.ref = "kotlinx-coroutines" }
 logback-android = { group = "com.github.tony19", name = "logback-android", version.ref = "logback-android" }
 mapsforge-core = { group = "com.github.mapsforge.mapsforge", name = "mapsforge-core", version.ref = "mapsforge" }
