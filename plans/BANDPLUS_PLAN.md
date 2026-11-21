@@ -10,8 +10,43 @@
 
 ## Progress Ledger & Current Baseline
 
-* **Base Repository**: Codeberg canonical (`https://codeberg.org/Freeyourgadget/Gadgetbridge.git`), local path `C:\Users\thanh\BandPlus` on branch `bandplus`.
-* **Toolchain**: Eclipse Temurin JDK 21, Android SDK (platforms;android-37.0, build-tools 35.0.0), Gradle 9.9.1, AGP 9.5.1.
+* **Base Repository**: Codeberg canonical (`https://codeberg.org/Freeyourgadget/Gadgetbridge.git`), local path `F:\BandPlus` on branch `bandplus`, pushed to `https://github.com/pttaer/BandPlus`.
+* **Toolchain**: Eclipse Temurin JDK 21 (`JAVA_HOME=C:\Program Files\Eclipse Adoptium\jdk-21.0.13.10002-hotspot`; Android Studio JBR is not installed), Android SDK (platforms;android-37.0, build-tools 35.0.0), Gradle 9.9.1, AGP 9.5.1.
+
+## Status after session 2026-11-21 (code only, nothing run on a device yet)
+
+**Verified:** `:app:assembleMainlineDebug` builds; `:bandplus:testDebugUnitTest` 20/20 pass (sleep score, bedtime SD across midnight, sleep debt, HR zones, resting HR, SDANN, RR cleaning/RMSSD, SpO2 drops/time-below, readiness, RHR flag, sustained-HR alert, CSV, TRIMP, ACWR, SRI, sedentary bouts, Pearson/top factors, energy). App unit tests + release build: see the last commit message / section below.
+
+**Done in code**
+- Task 2: `setup/ReliabilityScreen.kt` (battery optimisation, POST_NOTIFICATIONS, notification access, vivo autostart with fallbacks), shown on first launch and from Vòng tab. GB auto-fetch enabled by default (30 min) if the user never set it. `SyncWorker` asks the band for data every 30 min.
+- Task 3: `data/HealthSource.kt` (contract) + `app/src/main/java/vn/bandplus/backend/GbHealthSource.kt` (implementation using GB coordinator providers, read-only DB). Night belongs to wake-up day (`getSleepSessionsEndingIn`, longest session). Prefers a Xiaomi device. Old days (≥2 days) cached in memory per timezone, cleared on sync.
+- Task 4: dashboard with 13 reorderable cards (steps, kcal, active min, RHR, sleep+score, SpO2, stress, readiness, energy, Vitality/PAI, training load, sedentary bouts, battery), deltas vs yesterday and vs 7-day avg ignoring missing days, sync button that reloads at 3/15/45 s.
+- Task 5: score with per-part reasons, hypnogram with HR overlay, latency, awakenings/WASO, REM latency, efficiency, lowest HR + time, resting HR, midpoint, sleep debt, social jetlag, breathing rate (band), SRI (14 d), top-3 factors (30 nights), 90-day trend.
+- Task 6: HR day chart, Karvonen zones, SDANN (labelled, not RMSSD), RHR 90-day trend + 30-day median + illness flag, VO2max estimate, nocturnal dip, TRIMP + ACWR, band's own training load/recovery/Vitality, SpO2 curve/time-below/drops per hour, nightly-min trend, stress zones, stress vs sleep. HR alert worker (≥10 min outside thresholds, ignores minutes after walking, one alert per episode); thresholds in Vòng tab.
+- Mi Band depth: band daily summary (resting HR fallback, HR min/avg/max, Vitality/PAI, training load day/week, recovery hours, standing hours), band Body Energy (latest `XiaomiActivitySample.energy`), sleep respiratory rate.
+- Tasks 7/8/9: buttons into GB's existing screens (workout list with GPS/GPX, device settings, alarms, reminders, watch-face file install, notification rules, Health Connect). Weekly/monthly report screen, CSV export (365 days, SAF), Monday-08:00 weekly report notification, home-screen widget (steps, sleep, battery).
+- Task 10: optional release signing (`-Dnightly_store_file=... -Dnightly_store_password=... -Dnightly_key_alias=... -Dnightly_key_password=...`).
+- Debug panel (Vòng → Gỡ lỗi): devices, rows and first/last timestamps per table for a day, raw `day()`.
+
+**Deviations from this plan**
+- Upstream edits beyond Task 1: one line in `GBApplication.onCreate` (registers `GbHealthSource`), release signing lines in `app/build.gradle`. New app-side code lives only in `app/src/main/java/vn/bandplus/` (new package, no merge conflicts).
+- No new libraries: Compose `Canvas` charts instead of Vico, SharedPreferences instead of DataStore, plain AppWidget instead of Glance. Navigation is a route string, no nav library.
+- Tasks 7–9 reuse GB screens instead of new Compose ones (GB already has workout GPS/GPX, notification rules, Health Connect).
+- Task 11 (chest strap) skipped: user asked to focus on the Mi Band. `rmssd/sdnn/cleanRr` exist in `analytics/Hrv.kt` for later.
+- GB's own launcher icon kept so pairing stays reachable during the first device session; remove its LAUNCHER category later if one icon is wanted.
+
+**Still open (code)**
+- Task 10 Step 1: all UI text is inline Vietnamese; move to `values/` (en) + `values-vi/` resources.
+- Percentile bands (P5–P95) on HR chart: `HeartRatePercentiles` lives in `app/`, not visible to `:bandplus`; expose through `HealthSource` or move it.
+- Workout recovery HR (1/2 min drop) and per-workout zones inside BandPlus (GB's workout screen used for now).
+- Pull-to-refresh gesture (button for now), drag reorder (▲/▼ buttons for now).
+- 90-day screens query day by day; if the first open is slow on the phone, store daily summaries in a table.
+
+**First device session checklist**
+1. Force-stop Gadgetbridge and Mi Fitness. Build: `JAVA_HOME=... ./gradlew :app:assembleMainlineDebug`, `adb -s 10AF8B0KY8003YQ install -r app/build/outputs/apk/mainline/debug/app-mainline-debug.apk`.
+2. Open GB (second icon) → import old DB, pair Band 9 with auth key.
+3. BandPlus → Vòng → Gỡ lỗi: every table should have rows for today; compare `day()` with GB's own charts. Zero rows anywhere = report it with a screenshot.
+4. Review Focus 1–5 device checks per task below, overnight test (Task 2), band off for a day (Task 4), timezone change (Task 5), HR threshold 60 alert fires once (Task 6), install over old build keeps history (Task 9).
 * **[x] Task 1 Completed (`5702011255`)**:
   - `applicationId`: `vn.bandplus`
   - `app_name`: `BandPlus`
@@ -42,6 +77,8 @@
 
 ## Updated Implementation Tasks
 
+Legend: `[x]` done and device-checked, `[~]` code done (see status above), device check pending, `[ ]` not started.
+
 ### [x] Task 1: Fork, build, rebrand, install (COMPLETED)
 - [x] Clone Codeberg Gadgetbridge, create `bandplus` branch.
 - [x] Configure JDK 21, `local.properties`, android-37.0.
@@ -53,7 +90,7 @@
 
 ---
 
-### [ ] Task 2: Background Reliability & Auto-Sync
+### [~] Task 2: Background Reliability & Auto-Sync
 *Files:*
 - `bandplus/src/main/java/vn/bandplus/setup/ReliabilityScreen.kt`
 - Modify app start flow to show setup dialog once after initial pairing.
@@ -71,7 +108,7 @@
 
 ---
 
-### [ ] Task 3: Health Data Repository
+### [~] Task 3: Health Data Repository
 *Files:*
 - `bandplus/src/main/java/vn/bandplus/data/HealthRepository.kt`
 - `bandplus/src/main/java/vn/bandplus/data/Models.kt`
@@ -92,7 +129,7 @@
 
 ---
 
-### [ ] Task 4: OLED Dashboard
+### [~] Task 4: OLED Dashboard
 *Files:*
 - `bandplus/src/main/java/vn/bandplus/ui/dashboard/DashboardScreen.kt`
 - `bandplus/src/main/java/vn/bandplus/ui/dashboard/DashboardViewModel.kt`
@@ -113,7 +150,7 @@
 
 ---
 
-### [ ] Task 5: Deep Sleep Analysis & Explanatory Score
+### [~] Task 5: Deep Sleep Analysis & Explanatory Score
 *Files:*
 - `bandplus/src/main/java/vn/bandplus/ui/sleep/SleepScreen.kt`
 - `bandplus/src/main/java/vn/bandplus/analytics/SleepScore.kt`
@@ -142,7 +179,7 @@
 
 ---
 
-### [ ] Task 6: Heart Rate & Vitals Deep Analytics
+### [~] Task 6: Heart Rate & Vitals Deep Analytics
 *Files:*
 - `bandplus/src/main/java/vn/bandplus/ui/heart/HeartScreen.kt`
 - `bandplus/src/main/java/vn/bandplus/ui/vitals/VitalsScreen.kt`
@@ -170,7 +207,7 @@
 
 ---
 
-### [ ] Task 7: Workouts & Phone-GPS Tracking
+### [~] Task 7: Workouts & Phone-GPS Tracking
 *Files:*
 - `bandplus/src/main/java/vn/bandplus/ui/workout/WorkoutListScreen.kt`
 - `bandplus/src/main/java/vn/bandplus/ui/workout/WorkoutDetailScreen.kt`
@@ -191,7 +228,7 @@
 
 ---
 
-### [ ] Task 8: Settings & Smart Notification Filter
+### [~] Task 8: Settings & Smart Notification Filter
 *Files:*
 - `bandplus/src/main/java/vn/bandplus/ui/band/BandSettingsScreen.kt`
 - `bandplus/src/main/java/vn/bandplus/ui/band/NotificationFilterScreen.kt`
@@ -210,7 +247,7 @@
 
 ---
 
-### [ ] Task 9: Reports, CSV Export, Health Connect & Glance Widget
+### [~] Task 9: Reports, CSV Export, Health Connect & Glance Widget
 *Files:*
 - `bandplus/src/main/java/vn/bandplus/reports/WeeklyReportWorker.kt`
 - `bandplus/src/main/java/vn/bandplus/ui/reports/ReportScreen.kt`
@@ -229,7 +266,7 @@
 
 ---
 
-### [ ] Task 10: Localization, Theming & Release Build
+### [~] Task 10: Localization, Theming & Release Build
 - [ ] *Step 1:* Complete Vietnamese strings (`values-vi/strings.xml`) and English fallbacks.
 - [ ] *Step 2:* Final pure-black OLED contrast audit and empty state designs.
 - [ ] *Step 3:* Configure release signing in `app/build.gradle`.
@@ -253,3 +290,4 @@
 - [ ] *Step 3:* Trend against 7-day and 60-day baseline; feed RMSSD into morning Readiness score.
 - [ ] *Step 4:* Commit `Add chest strap HRV readings`.
 - [ ] *Device check:* Consecutive tests within 15% variation; movement artifacts prompt retry.
+
