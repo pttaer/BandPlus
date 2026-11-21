@@ -68,6 +68,9 @@ private fun Checks(ctx: Context) {
         start(ctx, Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS, Uri.parse("package:${ctx.packageName}")),
             Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS))
     }
+    Check("Cho phép BandPlus gửi thông báo (cảnh báo nhịp tim, báo cáo tuần)", NotificationManagerCompat.from(ctx).areNotificationsEnabled()) {
+        start(ctx, Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS).putExtra(Settings.EXTRA_APP_PACKAGE, ctx.packageName), appDetails(ctx))
+    }
     Check("Quyền đọc thông báo", hasNotificationAccess(ctx)) {
         start(ctx, Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS))
     }

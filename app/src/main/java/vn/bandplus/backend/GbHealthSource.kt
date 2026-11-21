@@ -11,6 +11,7 @@ import nodomain.freeyourgadget.gadgetbridge.util.GBPrefs
 import org.slf4j.LoggerFactory
 import nodomain.freeyourgadget.gadgetbridge.devices.XiaomiDailySummarySampleProvider
 import nodomain.freeyourgadget.gadgetbridge.devices.xiaomi.XiaomiCoordinator
+import nodomain.freeyourgadget.gadgetbridge.entities.XiaomiActivitySample
 import vn.bandplus.data.BandExtras
 import vn.bandplus.data.BandStatus
 import vn.bandplus.data.DaySummary
@@ -152,6 +153,10 @@ class GbHealthSource(private val ctx: Context) : HealthSource {
         val x = runCatching {
             XiaomiDailySummarySampleProvider(d, h.daoSession).getAllSamples(from * 1000, to * 1000).lastOrNull()
         }.getOrNull()
+        val bodyEnergy = runCatching {
+            d.deviceCoordinator.getSampleProvider(d, h.daoSession)!!.getAllActivitySamples(from.toInt(), to.toInt())
+                .mapNotNull { (it as? XiaomiActivitySample)?.energy?.takeIf { e -> e in 1..100 } }.lastOrNull()
+        }.getOrNull()
         val resp = runCatching {
             // sleep breathing belongs to the wake-up day: look from 18:00 the previous evening
             d.deviceCoordinator.getRespiratoryRateSampleProvider(d, h.daoSession)!!
@@ -169,7 +174,37 @@ class GbHealthSource(private val ctx: Context) : HealthSource {
             hrMax = x?.hrMax?.takeIf(::validHr),
             hrAvg = x?.hrAvg?.takeIf(::validHr),
             respiratoryAvg = resp.takeIf { it.isNotEmpty() }?.average(),
+            bodyEnergy = bodyEnergy,
         )
+    }
+
+    override fun debugInfo(date: LocalDate): String {
+        val all = GBApplication.app().deviceManager.devices
+        val head = "Devices: " + all.joinToString { "${it.aliasOrName} (${it.deviceCoordinator.javaClass.simpleName}, init=${it.isInitialized})" } +
+            "\nUsing: ${device()?.aliasOrName}\nZone: ${ZoneId.systemDefault()}\n"
+        return head + db("DB error / no device") { h, d ->
+            val (from, to) = bounds(date)
+            val c = d.deviceCoordinator
+            val s = h.daoSession
+            fun <T> line(name: String, rows: () -> List<T>, ts: (T) -> Long): String = runCatching {
+                val r = rows()
+                val t = r.map(ts).sorted()
+                "$name: ${r.size} rows" + if (t.isNotEmpty()) " [${Instant.ofEpochMilli(t.first())} .. ${Instant.ofEpochMilli(t.last())}]" else ""
+            }.getOrElse { "$name: ERROR ${it.javaClass.simpleName}: ${it.message}" }
+            listOf(
+                line("activity (sec ts)", { c.getSampleProvider(d, s)!!.getAllActivitySamples(from.toInt(), to.toInt()) }) { it.timestamp * 1000L },
+                line("hr valid", { hr(date) }) { it.t.toEpochMilli() },
+                line("resting hr", { c.getHeartRateRestingSampleProvider(d, s)!!.getAllSamples(from * 1000, to * 1000) }) { it.timestamp },
+                line("spo2", { c.getSpo2SampleProvider(d, s)!!.getAllSamples(from * 1000, to * 1000) }) { it.timestamp },
+                line("stress", { c.getStressSampleProvider(d, s)!!.getAllSamples(from * 1000, to * 1000) }) { it.timestamp },
+                line("respiratory", { c.getRespiratoryRateSampleProvider(d, s)!!.getAllSamples((from - 6 * 3600) * 1000, to * 1000) }) { it.timestamp },
+                line("xiaomi daily summary", { XiaomiDailySummarySampleProvider(d, s).getAllSamples(from * 1000, to * 1000) }) { it.timestamp },
+                line("sleep sessions ending today", { c.getSleepSessionProvider(d, s)!!.getSleepSessionsEndingIn(from.toInt(), to.toInt()) }) { it.endTime },
+                "day(): ${computeDay(date)}",
+                "extras: ${bandExtras(date)}",
+                "lastSynced: ${lastSyncedAt()}",
+            ).joinToString("\n")
+        }
     }
 
     override fun steps(date: LocalDate): List<Point> = db(emptyList()) { h, d ->
@@ -214,8 +249,8 @@ class GbHealthSource(private val ctx: Context) : HealthSource {
             GbScreen.ALARMS -> "ConfigureAlarms" to true
             GbScreen.REMINDERS -> "ConfigureReminders" to true
             GbScreen.NOTIFICATIONS -> "NotificationManagementActivity" to false
-            GbScreen.APP_NOTIFICATION_RULES -> "notifications.apps.NotificationAppSettingsActivity" to false
-            GbScreen.WATCHFACE_INSTALL -> "install.FwAppInstallerActivity" to true
+            GbScreen.APP_NOTIFICATION_RULES -> "NotificationManagementActivity" to false
+            GbScreen.WATCHFACE_INSTALL -> "OpenFwAppInstallerActivity" to true
             GbScreen.HEALTH_CONNECT -> "preferences.HealthConnectPreferencesActivity" to false
             GbScreen.WORKOUTS -> "workouts.WorkoutListActivity" to true
             GbScreen.HR_ZONES -> "heartratezones.HeartRateSettingsActivity" to false

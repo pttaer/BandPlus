@@ -138,7 +138,12 @@ fun DashboardScreen(src: HealthSource, go: (String) -> Unit) {
             }
             Card.ENERGY -> {
                 val awakeH = t.sleep?.let { Duration.between(it.end, java.time.Instant.now()).toMinutes() / 60.0 } ?: 0.0
-                MetricCard("Năng lượng (ước tính)", energy(t.sleep, t.stressAvg, awakeH.coerceAtLeast(0.0), t.activeMin)?.toString(), "/100", higherIsBetter = null, modifier = m)
+                val band = extras?.bodyEnergy
+                MetricCard(
+                    if (band != null) "Năng lượng (vòng đo)" else "Năng lượng (ước tính)",
+                    (band ?: energy(t.sleep, t.stressAvg, awakeH.coerceAtLeast(0.0), t.activeMin))?.toString(), "/100",
+                    higherIsBetter = null, modifier = m
+                )
             }
             Card.VITALITY -> MetricCard(
                 "Vitality (PAI) 7 ngày" + (extras?.vitalityToday?.takeIf { it > 0 }?.let { " · +$it hôm nay" } ?: ""),
@@ -385,8 +390,8 @@ fun BandScreen(src: HealthSource, go: (String) -> Unit) {
         "Bài tập (GPS, vùng nhịp tim, xuất GPX)" to GbScreen.WORKOUTS,
     ).forEach { (label, s) -> OutlinedButton(onClick = { src.open(s) }, modifier = Modifier.fillMaxWidth().padding(vertical = 3.dp)) { Text(label) } }
     SectionTitle("Thông báo")
-    OutlinedButton(onClick = { src.open(GbScreen.NOTIFICATIONS) }, modifier = Modifier.fillMaxWidth()) { Text("Ứng dụng, giờ yên lặng") }
-    OutlinedButton(onClick = { src.open(GbScreen.APP_NOTIFICATION_RULES) }, modifier = Modifier.fillMaxWidth()) { Text("Lọc theo từ khoá từng ứng dụng") }
+    OutlinedButton(onClick = { src.open(GbScreen.NOTIFICATIONS) }, modifier = Modifier.fillMaxWidth()) { Text("Ứng dụng, từ khoá, giờ yên lặng") }
+    OutlinedButton(onClick = { go("debug") }, modifier = Modifier.fillMaxWidth()) { Text("Gỡ lỗi: dữ liệu thô hôm nay") }
     SectionTitle("Dữ liệu")
     OutlinedButton(onClick = { go("reports") }, modifier = Modifier.fillMaxWidth()) { Text("Báo cáo tuần / tháng, xuất CSV") }
     OutlinedButton(onClick = { src.open(GbScreen.HEALTH_CONNECT) }, modifier = Modifier.fillMaxWidth()) { Text("Đồng bộ Health Connect") }
@@ -414,6 +419,17 @@ private fun Stepper(label: String, key: String, default: Int, step: Int = 5) {
         TextButton(onClick = { set(v - step) }) { Text("−") }
         TextButton(onClick = { set(v + step) }) { Text("+") }
     }
+}
+
+@Composable
+fun DebugScreen(src: HealthSource) {
+    var day by remember { mutableStateOf(today()) }
+    val info by load(day) { src.debugInfo(day) }
+    DayPicker(day) { day = it }
+    androidx.compose.foundation.text.selection.SelectionContainer {
+        Text(info ?: "Đang tải…", color = Color.White, fontSize = 11.sp, fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace)
+    }
+    Footnote("So sánh với biểu đồ của Gadgetbridge. 0 dòng ở mục nào = chưa đồng bộ hoặc sai đơn vị thời gian.")
 }
 
 // ---------------------------------------------------------------- Reports + CSV

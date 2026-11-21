@@ -17,6 +17,8 @@ interface HealthSource {
     /** Values the band itself computes (Xiaomi daily summary + sleep breathing). */
     fun bandExtras(date: LocalDate): BandExtras
     fun lastSyncedAt(): Instant?
+    /** Raw row counts / first-last timestamps per table for a day, for the first device check. */
+    fun debugInfo(date: LocalDate): String
     fun status(): BandStatus
     fun sync()
     /** Opens an existing Gadgetbridge screen. */

@@ -49,6 +49,7 @@ data class BandExtras(
     val hrMax: Int? = null,
     val hrAvg: Int? = null,
     val respiratoryAvg: Double? = null, // breaths/min during sleep
+    val bodyEnergy: Int? = null,        // band's own energy 0-100, latest sample of the day
 )
 
 data class BandStatus(val name: String?, val connected: Boolean, val battery: Int?)

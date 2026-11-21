@@ -66,6 +66,7 @@ fun App(start: String) {
                 "vitals" -> VitalsScreen(src)
                 "band" -> BandScreen(src) { route = it }
                 "reports" -> ReportsScreen(src)
+                "debug" -> DebugScreen(src)
                 "reliability" -> ReliabilityScreen()
                 else -> DashboardScreen(src) { route = it }
             }
