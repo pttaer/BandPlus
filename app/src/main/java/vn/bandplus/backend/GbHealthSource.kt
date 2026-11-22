@@ -84,7 +84,7 @@ class GbHealthSource(private val ctx: Context) : HealthSource {
         val samples = c.getSampleProvider(d, s)!!.getAllActivitySamples(from.toInt(), to.toInt())
         val hasData = samples.any { it.steps > 0 || validHr(it.heartRate) }
         val steps = if (hasData) samples.sumOf { it.steps.coerceAtLeast(0) } else null
-        val kcal = if (hasData) samples.sumOf { it.activeCalories.coerceAtLeast(0) } else null
+        val kcal = if (hasData) samples.sumOf { it.activeCalories.coerceAtLeast(0) } / 1000 else null // GB providers store small calories (x1000)
         // ponytail: cadence >= 100 steps/min as MET>=3 proxy; replace with band's own active-minutes if it starts sending them
         val activeMin = if (hasData) samples.count { it.steps >= 100 } else null
 
@@ -169,7 +169,7 @@ class GbHealthSource(private val ctx: Context) : HealthSource {
             trainingLoadDay = pos(x?.trainingLoadDay),
             trainingLoadWeek = pos(x?.trainingLoadWeek),
             recoveryHours = x?.recoveryHours?.takeIf { it >= 0 },
-            standingHours = x?.standing?.takeIf { it >= 0 },
+            standingHours = x?.standing?.takeIf { it >= 0 }?.let { Integer.bitCount(it) }, // 24h bitmap, 1 bit per standing hour
             hrMin = x?.hrMin?.takeIf(::validHr),
             hrMax = x?.hrMax?.takeIf(::validHr),
             hrAvg = x?.hrAvg?.takeIf(::validHr),

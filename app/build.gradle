@@ -232,6 +232,12 @@ androidComponents {
             oauthRedirectScheme.map { new BuildConfigField("String", "\"${it}\"", null) }
         )
 
+        // BandPlus: debug builds also get a commit-count versionCode; vivo's installer
+        // aborts `adb install` when the versionCode is unchanged ("same version" dialog).
+        if (variant.buildType == "debug") {
+            variant.outputs.each { output -> output.versionCode.set(getVersionCode()) }
+        }
+
         if (variant.buildType == "nightly" || variant.buildType == "nopebble") {
             variant.outputs.each { output ->
                 // nightly/nopebble builds get a monotonically increasing versionCode
