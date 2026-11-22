@@ -42,6 +42,15 @@
 - Pull-to-refresh gesture (button for now), drag reorder (▲/▼ buttons for now).
 - 90-day screens query day by day; if the first open is slow on the phone, store daily summaries in a table.
 
+**Device session 2026-11-22 (vivo PD2445M / iQOO Z10x, Android 15, Band 9 0F6E)**
+- Official GB 2026.11.1 (schema 160, data since 2026-11-18) exported as ZIP, restored into BandPlus (schema 162), band connected + companion-paired, sync works. Mi Fitness and official GB force-stopped (still installed).
+- Permissions granted over adb; vivo autostart already on; Reliability screen all ✓.
+- Fixed on device: Pebble provider authority clash with official GB (`vn.bandplus.pebble.provider`), kcal ×1000, standing hours (bitmap → bitCount), sync() now connects first when disconnected (after app update GB does not reconnect by itself), DeviceSettings crash (missing MENU_ENTRY_POINT), ACWR showed 4.00 with 4 days of data. Debug builds use commit-count versionCode (vivo aborts `adb install` on same versionCode).
+- Band had stress + all-day SpO2 monitoring OFF (0 rows ever) → switched ON in Device settings → Heart Rate Monitoring.
+- Verified screens: Hôm nay, Ngủ (score, hypnogram + HR), Tim (P5–P95 lines), all Vòng buttons open without crash, debug panel.
+- vivo install: every `adb install` shows a security screen (tick "Tôi đã hiểu…" at 120,2108, then "Tiếp tục cài đặt" at 540,2255).
+- Not yet: overnight test, band-off day, timezone change, HR alert test, SpO2/stress data arriving.
+
 **First device session checklist**
 1. Force-stop Gadgetbridge and Mi Fitness. Build: `JAVA_HOME=... ./gradlew :app:assembleMainlineDebug`, `adb -s 10AF8B0KY8003YQ install -r app/build/outputs/apk/mainline/debug/app-mainline-debug.apk`.
 2. Open GB (second icon) → import old DB, pair Band 9 with auth key.
