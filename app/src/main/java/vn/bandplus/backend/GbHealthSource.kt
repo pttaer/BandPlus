@@ -268,6 +268,10 @@ class GbHealthSource(private val ctx: Context) : HealthSource {
         }
         val i = Intent().setClassName(ctx, pkg + cls).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
         if (needsDevice) device()?.let { i.putExtra(GBDevice.EXTRA_DEVICE, it) }
+        if (screen == GbScreen.DEVICE_SETTINGS) i.putExtra(
+            nodomain.freeyourgadget.gadgetbridge.activities.devicesettings.DeviceSettingsActivity.MENU_ENTRY_POINT,
+            nodomain.freeyourgadget.gadgetbridge.activities.devicesettings.DeviceSettingsActivity.MENU_ENTRY_POINTS.DEVICE_SETTINGS,
+        )
         try {
             ctx.startActivity(i)
         } catch (e: Exception) {
