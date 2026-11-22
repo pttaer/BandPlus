@@ -239,7 +239,16 @@ class GbHealthSource(private val ctx: Context) : HealthSource {
     override fun sync() {
         dayCache.clear()
         val d = device() ?: return
-        GBApplication.deviceService(d).onFetchRecordedData(RecordedDataTypes.TYPE_SYNC)
+        val svc = GBApplication.deviceService(d)
+        if (d.isInitialized) return svc.onFetchRecordedData(RecordedDataTypes.TYPE_SYNC)
+        // fetch is ignored while disconnected (e.g. after app update): connect, wait for init, then fetch
+        svc.connect()
+        Thread {
+            repeat(60) {
+                Thread.sleep(1000)
+                if (d.isInitialized) return@Thread svc.onFetchRecordedData(RecordedDataTypes.TYPE_SYNC)
+            }
+        }.start()
     }
 
     override fun open(screen: GbScreen) {
