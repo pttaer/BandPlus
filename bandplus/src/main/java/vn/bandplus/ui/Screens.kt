@@ -41,6 +41,7 @@ import vn.bandplus.analytics.hrZones
 import vn.bandplus.analytics.maxHrFor
 import vn.bandplus.analytics.meanOrNull
 import vn.bandplus.analytics.median
+import vn.bandplus.analytics.percentile
 import vn.bandplus.analytics.minutesBelow
 import vn.bandplus.analytics.readiness
 import vn.bandplus.analytics.restingHr
@@ -291,7 +292,11 @@ fun HeartScreen(src: HealthSource) {
     val sleepNow = hist?.firstOrNull()?.sleep
 
     SectionTitle("Nhịp tim trong ngày")
-    LineChart(pts.map { it.t.epochSecond }, pts.map { it.bpm })
+    // P5..P95 palette from the plan's visual spec
+    val pcts = listOf(0.05 to Color(0xFF4BA6C9), 0.25 to Color(0xFF64C2E5), 0.5 to Color(0xFF8BDCFB), 0.75 to Color(0xFFC6ECFB), 0.95 to Color.White)
+        .mapNotNull { (p, c) -> pts.map { it.bpm }.percentile(p)?.let { it to c } }
+    LineChart(pts.map { it.t.epochSecond }, pts.map { it.bpm }, refs = pcts)
+    if (pcts.size == 5) Line("P5 / P25 / P50 / P75 / P95", pcts.joinToString(" / ") { "%.0f".format(it.first) } + " bpm")
     if (pts.isNotEmpty()) Line("Thấp / TB / cao", "${pts.minOf { it.bpm }} / ${pts.map { it.bpm }.average().toInt()} / ${pts.maxOf { it.bpm }} bpm")
     extras?.let { e -> if (e.hrMin != null) Line("Vòng tính (thấp / TB / cao)", "${e.hrMin} / ${e.hrAvg ?: "—"} / ${e.hrMax ?: "—"} bpm") }
     if (sleepNow != null) {

@@ -105,7 +105,7 @@ fun Line(label: String, value: String) = Row(Modifier.fillMaxWidth().padding(ver
  * [xs] epoch seconds, [ys] values.
  */
 @Composable
-fun LineChart(xs: List<Long>, ys: List<Int>, color: Color = Cyan, gapSec: Long = 600, minY: Int? = null, maxY: Int? = null) {
+fun LineChart(xs: List<Long>, ys: List<Int>, color: Color = Cyan, gapSec: Long = 600, minY: Int? = null, maxY: Int? = null, refs: List<Pair<Double, Color>> = emptyList()) {
     if (xs.size < 2) {
         Text("Không có dữ liệu", color = Muted, fontSize = 13.sp)
         return
@@ -116,6 +116,10 @@ fun LineChart(xs: List<Long>, ys: List<Int>, color: Color = Cyan, gapSec: Long =
     val x1 = xs.last().toFloat().let { if (it <= x0) x0 + 1 else it }
     Canvas(Modifier.fillMaxWidth().height(140.dp).background(CardBg, RoundedCornerShape(10.dp)).padding(8.dp)) {
         fun p(i: Int) = Offset((xs[i] - x0) / (x1 - x0) * size.width, size.height - (ys[i] - lo) / (hi - lo) * size.height)
+        for ((v, c) in refs) {
+            val y = size.height - (v.toFloat() - lo) / (hi - lo) * size.height
+            drawLine(c.copy(alpha = 0.5f), Offset(0f, y), Offset(size.width, y), strokeWidth = 1.5f)
+        }
         for (i in 1 until xs.size) {
             if (xs[i] - xs[i - 1] > gapSec) continue
             drawLine(color, p(i - 1), p(i), strokeWidth = 3f)

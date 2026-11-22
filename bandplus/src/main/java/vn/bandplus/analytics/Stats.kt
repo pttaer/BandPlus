@@ -18,3 +18,12 @@ fun List<Int>.median(): Double? = sorted().let { s ->
 /** today - reference, rounded; null when either side missing. */
 fun delta(today: Number?, ref: Number?): Int? =
     if (today == null || ref == null) null else Math.round(today.toDouble() - ref.toDouble()).toInt()
+
+/** R-7 (linear interpolation, same as HeartRatePercentiles/Excel PERCENTILE.INC); [p] in 0..1. */
+fun List<Int>.percentile(p: Double): Double? {
+    if (isEmpty()) return null
+    val s = sorted()
+    val h = (s.size - 1) * p
+    val lo = h.toInt()
+    return s[lo] + (h - lo) * (s[minOf(lo + 1, s.size - 1)] - s[lo])
+}

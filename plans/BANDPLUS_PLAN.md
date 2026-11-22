@@ -26,6 +26,7 @@
 - Mi Band depth: band daily summary (resting HR fallback, HR min/avg/max, Vitality/PAI, training load day/week, recovery hours, standing hours), band Body Energy (latest `XiaomiActivitySample.energy`), sleep respiratory rate.
 - Tasks 7/8/9: buttons into GB's existing screens (workout list with GPS/GPX, device settings, alarms, reminders, watch-face file install, notification rules, Health Connect). Weekly/monthly report screen, CSV export (365 days, SAF), Monday-08:00 weekly report notification, home-screen widget (steps, sleep, battery).
 - Task 10: optional release signing (`-Dnightly_store_file=... -Dnightly_store_password=... -Dnightly_key_alias=... -Dnightly_key_password=...`).
+- HR chart P5–P95 reference lines + values (`percentile()` in `analytics/Stats.kt`, R-7 like `HeartRatePercentiles`).
 - Debug panel (Vòng → Gỡ lỗi): devices, rows and first/last timestamps per table for a day, raw `day()`.
 
 **Deviations from this plan**
@@ -37,7 +38,6 @@
 
 **Still open (code)**
 - Task 10 Step 1: all UI text is inline Vietnamese; move to `values/` (en) + `values-vi/` resources.
-- Percentile bands (P5–P95) on HR chart: `HeartRatePercentiles` lives in `app/`, not visible to `:bandplus`; expose through `HealthSource` or move it.
 - Workout recovery HR (1/2 min drop) and per-workout zones inside BandPlus (GB's workout screen used for now).
 - Pull-to-refresh gesture (button for now), drag reorder (▲/▼ buttons for now).
 - 90-day screens query day by day; if the first open is slow on the phone, store daily summaries in a table.

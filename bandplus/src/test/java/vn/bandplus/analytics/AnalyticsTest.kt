@@ -137,4 +137,12 @@ class AnalyticsTest {
         assertEquals(5.0, listOf(4, null, 6).meanOrNull()!!, 1e-9)
         assertNull(delta(null, 3))
     }
+
+    @Test fun percentileR7() {
+        val v = listOf(50, 60, 70, 80, 90)
+        assertEquals(52.0, v.percentile(0.05)!!, 1e-9)
+        assertEquals(70.0, v.percentile(0.5)!!, 1e-9)
+        assertEquals(90.0, v.percentile(1.0)!!, 1e-9)
+        assertNull(emptyList<Int>().percentile(0.5))
+    }
 }
