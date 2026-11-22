@@ -103,6 +103,7 @@ class AnalyticsTest {
     @Test fun acwrSteadyIsOne() {
         assertEquals(1.0, acwr(List(28) { 50.0 })!!, 1e-9)
         assertNull(acwr(List(10) { 50.0 }))
+        assertNull(acwr(List(4) { 50.0 } + List(24) { 0.0 })) // new user: 4 days of data, rest empty
     }
 
     @Test fun sriPerfectlyRegularIs100() {

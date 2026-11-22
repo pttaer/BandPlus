@@ -23,9 +23,9 @@ fun trimp(points: List<HrPoint>, restingHr: Int, maxHr: Int): Double {
     return total
 }
 
-/** Acute (last 7) : chronic (last 28) daily load. Newest first. 0.8-1.3 = safe. null if < 14 days. */
+/** Acute (last 7) : chronic (last 28) daily load. Newest first. 0.8-1.3 = safe. null if < 14 days with data (load > 0). */
 fun acwr(dailyLoadNewestFirst: List<Double>): Double? {
-    if (dailyLoadNewestFirst.size < 14) return null
+    if (dailyLoadNewestFirst.take(28).count { it > 0 } < 14) return null
     val chronic = dailyLoadNewestFirst.take(28).average()
     return if (chronic <= 0) null else dailyLoadNewestFirst.take(7).average() / chronic
 }
